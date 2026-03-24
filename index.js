@@ -1,41 +1,74 @@
-// 1. Carrega o sistema de segurança (lê o arquivo .env)
-require('dotenv').config();
-
-// 2. Importa a biblioteca do Google Gemini
+require('dotenv').config(); // Carrega a GEMINI_API_KEY do arquivo .env
+const express = require('express');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const PDFDocument = require('pdfkit');
 
-// 3. Verifica se a chave foi carregada corretamente
-const apiKey = process.env.GEMINI_API_KEY;
-if (!apiKey) {
-    console.error("❌ ERRO: Chave da API não encontrada. Verifique seu arquivo .env!");
-    process.exit(1);
-}
+const app = express();
 
-// 4. Conecta com a IA usando a sua chave secreta
-const genAI = new GoogleGenerativeAI(apiKey);
+// Middleware para entender JSON e servir arquivos estáticos
+app.use(express.json());
+app.use(express.static('public')); 
 
-async function executarAgente() {
+// Configuração da IA (Certifique-se de ter a chave no seu arquivo .env)
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+/**
+ * ROTA 1: PROCESSAR MENSAGEM DO CHAT
+ * Recebe o texto do usuário e retorna a resposta da IA
+ */
+app.post('/chat', async (req, res) => {
     try {
-        console.log("⏳ Conectando aos servidores do Google...");
+        const { mensagem } = req.body;
 
-        // 5. Escolhe o modelo de IA que vamos usar
-        const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+        if (!mensagem) {
+            return res.status(400).json({ erro: "A mensagem está vazia." });
+        }
 
-        // 6. ENGENHARIA DE PROMPT (Sua vez de brilhar!)
-        const prompt = "Explique o que é Computação em Nuvem em exatamente um parágrafo curto, usando a linguagem de um pirata dos sete mares.";
+        // Envia a mensagem para o Google Gemini
+        const result = await model.generateContent(mensagem);
+        const response = await result.response;
+        const respostaTexto = response.text();
 
-        // 7. Envia a pergunta e espera (await) a resposta
-        const result = await model.generateContent(prompt);
-        const resposta = result.response.text();
-
-        console.log("\n🤖 [AGENTE GEMINI]:");
-        console.log(resposta);
-        console.log("\n✅ Missão Concluída.");
+        // Retorna a resposta para o frontend
+        res.json({ resposta: respostaTexto });
 
     } catch (erro) {
-        console.error("❌ Ocorreu um erro na conexão:", erro.message);
+        console.error("Erro na API Gemini:", erro);
+        res.status(500).json({ erro: "Erro ao processar sua solicitação na IA." });
     }
-}
+});
 
-// Roda o sistema
-executarAgente();
+/**
+ * ROTA 2: GERAR PDF DO RESUMO
+ */
+app.post('/gerar-pdf', async (req, res) => {
+    try {
+        const { historico } = req.body;
+
+        // IA cria um resumo do histórico para o PDF
+        const promptResumo = `Resuma os pontos principais desta conversa para um relatório:\n\n${historico}`;
+        const result = await model.generateContent(promptResumo);
+        const resumoIA = result.response.text();
+
+        const doc = new PDFDocument();
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename=resumo-conversa.pdf');
+
+        doc.pipe(res);
+        doc.fontSize(22).fillColor('#007bff').text('Relatório da Conversa', { align: 'center' });
+        doc.moveDown();
+        doc.fontSize(12).fillColor('black').text(resumoIA);
+        doc.end();
+
+    } catch (erro) {
+        console.error("Erro ao gerar PDF:", erro);
+        res.status(500).send("Erro ao gerar PDF");
+    }
+});
+
+// Inicia o servidor
+const PORT = 3000;
+app.listen(PORT, () => {
+    console.log(`✅ Servidor rodando em http://localhost:${PORT}`);
+});
