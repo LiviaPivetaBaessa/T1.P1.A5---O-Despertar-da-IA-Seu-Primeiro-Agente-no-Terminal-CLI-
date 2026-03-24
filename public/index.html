@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Meu Assistente IA</title>
     <link rel="stylesheet" href="style.css">
+
 </head>
 <body>
 
@@ -39,7 +40,7 @@
 
             // Chama o servidor
             try {
-                const response = await fetch('/chat', {
+                const response = await fetch('http://localhost:3000/chat', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ mensagem: texto })

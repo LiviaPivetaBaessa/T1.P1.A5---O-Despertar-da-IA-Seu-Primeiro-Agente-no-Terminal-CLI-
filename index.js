@@ -1,5 +1,6 @@
 require('dotenv').config(); // Carrega a GEMINI_API_KEY do arquivo .env
 const express = require('express');
+const cors = require('cors');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const PDFDocument = require('pdfkit');
 
@@ -8,6 +9,8 @@ const app = express();
 // Middleware para entender JSON e servir arquivos estáticos
 app.use(express.json());
 app.use(express.static('public')); 
+
+app.use(cors()); 
 
 // Configuração da IA (Certifique-se de ter a chave no seu arquivo .env)
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -67,8 +70,9 @@ app.post('/gerar-pdf', async (req, res) => {
     }
 });
 
-// Inicia o servidor
-const PORT = 3000;
+// ... suas rotas app.post ...
+
+const PORT = 3000; // Force 3000 para teste local
 app.listen(PORT, () => {
     console.log(`✅ Servidor rodando em http://localhost:${PORT}`);
 });
